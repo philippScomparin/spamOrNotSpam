@@ -5,6 +5,7 @@ library(wordcloud)
 library(SnowballC)
 library(RWeka)
 library(ggplot2)
+library(reshape2)
 
 ##################### LOAD DATA ##################### 
 
@@ -26,6 +27,12 @@ removeNumeration <- function(x) {
   gsub(pattern = "[[:digit:]][[:blank:]]th", replacement = "", x)
 }
 
+removeURL <- function(x){
+  
+  gsub(pattern= "")
+  
+}
+
 pal = brewer.pal(8, "Blues")
 pal = pal[-(1:3)]
 set.seed(1234)
@@ -43,9 +50,9 @@ corpus.ngrams = tm_map(corpus_noNumeration,removeWords,c(stopwords(),"re", "ect"
 corpus.ngrams = tm_map(corpus.ngrams,removePunctuation)
 corpus.ngrams = tm_map(corpus.ngrams,removeNumbers)
 
+
 ##################### UNIGRAM ##################### 
 
-# tdm = TermDocumentMatrix(corpus_noEmailAddress, control=list(removePunctuation = T, removeNumbers = T, stopwords = c(stopwords(), "subject", "subject re", "vince", "hou", "ect", "kaminski"), stripWhitespace= T))
 tdm = TermDocumentMatrix(corpus.ngrams, control=list(stripWhitespace= T))
 tdm
 tdm.small <- removeSparseTerms(tdm, sparse = 0.9)
@@ -57,30 +64,54 @@ inspect(tdm)
 word.cloud = wordcloud(words=names(freq), freq=freq, min.freq=500,
                        random.order=F, colors=pal)
 
+##################### WORD DOCUMENT FREQUENCY GRAPH #####################
+
+tdm.mini <- removeSparseTerms(tdm.small, sparse = 0.8)
+matrix.tdm = melt(as.matrix(tdm.mini), value.name = "count")
+head(matrix.tdm)
+
+ggplot(matrix.tdm, aes(x = Docs, y = Terms, fill = log10(count))) +
+  geom_tile(colour = "black") +
+  scale_fill_gradient(high="#ffffff" , low="#000000")+
+  ylab("Terms") +
+  xlab("E-Mails") +
+  theme(panel.background = element_blank()) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
 ##################### BIGRAM ##################### 
 
 BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
-# tdm.bigram <- TermDocumentMatrix(corpus_noNumeration,
-#                                 control = list (tokenize = BigramTokenizer, removeNumbers = T, stripWhitespace = T , removePunctuation = T, stopwords = c(stopwords(), " ect", "subject re", "ect ", "hou", "vince", "hou ", " hou", "cc subject", " am", "on ", "enron ", " enron", " pm", "j kaminski", "kaminski ", "http", "ect cc", " to")))
 tdm.bigram <- TermDocumentMatrix(corpus.ngrams,
                                 control = list (tokenize = BigramTokenizer, stripWhitespace = T))
 tdm.bigram
 tdm.bigram.small <- removeSparseTerms(tdm.bigram, 0.99)
 inspect(tdm.bigram.small)
-freqBigram = sort(rowSums(as.matrix(tdm.bigram.small)),decreasing = TRUE)
-freqBigram.df = data.frame(word=names(freqBigram), freq=freqBigram)
-head(freqBigram.df, 20)
-wordcloud(freqBigram.df$word,freqBigram.df$freq,max.words=100,random.order = F, colors=pal)
-
-ggplot(head(freqBigram.df,15), aes(reorder(word,freqBigram), freqBigram)) +   
+freq = sort(rowSums(as.matrix(tdm.bigram.small)),decreasing = TRUE)
+freq.df = data.frame(word=names(freq), freq=freq)
+head(freq.df, 20)
+wordcloud(freq.df$word,freq.df$freq,max.words=100,random.order = F, colors=pal)
+ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +   
   geom_bar(stat="identity") + coord_flip() + 
-  xlab("Bigrams") + ylab("Frequency") +
-  ggtitle("Most frequent bigrams")
+  xlab("Bigram") + ylab("Frequency") +
+  ggtitle("Most Frequent Bigrams")
+
+##################### TRIGRAM ##################### 
+
+TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+tdm.trigram = TermDocumentMatrix(corpus.ngrams,
+                                 control = list(tokenize = TrigramTokenizer, stripWhitespace = T))
+tdm.trigram
+tdm.trigram.small <- removeSparseTerms(tdm.trigram, 0.999)
+inspect(tdm.trigram.small)
+freq = sort(rowSums(as.matrix(tdm.trigram.small)),decreasing = TRUE)
+freq.df = data.frame(word=names(freq), freq=freq)
+head(freq.df, 20)
+wordcloud(freq.df$word,freq.df$freq,max.words=100,random.order = F, colors=pal)
+ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +   
+  geom_bar(stat="identity") + coord_flip() + 
+  xlab("Trigram") + ylab("Frequency") +
+  ggtitle("Most Frequent Trigrams")
 
 
 
-# m2 <- as.matrix(tdm.bigram.small)
-# v2 <- sort(rowSums(m2),decreasing=TRUE)
-# tdm_bigrams <- data.frame(word = names(v2),freq=v2)
-# word.cloud = wordcloud(words=names(v2), freq=v2, min.freq=1, 
-#                        random.order=F, colors=pal)
+
