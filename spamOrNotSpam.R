@@ -27,9 +27,9 @@ removeNumeration <- function(x) {
   gsub(pattern = "[[:digit:]][[:blank:]]th", replacement = "", x)
 }
 
-removeURL <- function(x){
+removeURLs <- function(x){
   
-  gsub(pattern= "")
+  gsub(pattern= "http[[:blank:]]www\\w*com", replacement = "", x)
   
 }
 
@@ -46,8 +46,9 @@ inspect(corpus_lowercase[[1]])
 corpus_noEmailAddress <- tm_map(corpus_lowercase, content_transformer(removeEmailAddress))
 inspect(corpus_noEmailAddress[[4]])
 corpus_noNumeration <- tm_map(corpus_noEmailAddress, content_transformer(removeNumeration))
-corpus.ngrams = tm_map(corpus_noNumeration,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron"))
+corpus.ngrams = tm_map(corpus_noNumeration,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http"))
 corpus.ngrams = tm_map(corpus.ngrams,removePunctuation)
+corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
 corpus.ngrams = tm_map(corpus.ngrams,removeNumbers)
 
 
