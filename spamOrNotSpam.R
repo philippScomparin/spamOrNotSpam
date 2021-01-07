@@ -8,6 +8,9 @@ library(ggplot2)
 library(reshape2)
 library(sentimentr)
 library(qdap)
+library(e1071)
+library(gmodels)
+
 
 
 ##################### LOAD DATA ##################### 
@@ -19,6 +22,7 @@ emails <- read.csv('emails.csv')
 
 head(emails$text)
 length(emails$text)
+table(factor(emails$spam))
 
 ##################### HELPER FUNCTIONS ##################### 
 
@@ -125,6 +129,30 @@ qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Review Sentim
 
 ##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
 
+ySplits <- sort(sample(nrow(emails), nrow(emails)*.7))
+yTrain <- emails[ySplits,]$spam
+yTest <- emails[-ySplits,]$spam
+prop.table(table(yTrain))
+prop.table(table(yTest))
 
+xTrain <- tdm[1:4009,]
+xTest <- tdm[4010:5728,]
 
+convert_counts <- function(x) {
+  x <- ifelse(x > 0, "Yes", "No")
+}
+train <- apply(xTrain, MARGIN = 2,
+               convert_counts)
+test <- apply(xTest, MARGIN = 2,
+              convert_counts)
 
+classifier <- naiveBayes(train, yTrain)
+classifier[2]$tables
+testPredict <- predict(classifier, test)
+
+CrossTable(testPredict, yTest,
+           prop.chisq = FALSE, prop.t = FALSE,
+           dnn = c('predicted', 'actual'))
+
+cMatrix <- table(testPredict, testPredict)
+confusion_matrix(cMatrix)
