@@ -6,6 +6,9 @@ library(SnowballC)
 library(RWeka)
 library(ggplot2)
 library(reshape2)
+library(sentimentr)
+library(qdap)
+
 
 ##################### LOAD DATA ##################### 
 
@@ -27,11 +30,11 @@ removeNumeration <- function(x) {
   gsub(pattern = "[[:digit:]][[:blank:]]th", replacement = "", x)
 }
 
-removeURLs <- function(x){
-  
-  gsub(pattern= "http[[:blank:]]www\\w*com", replacement = "", x)
-  
-}
+# removeURLs <- function(x){
+#   
+#   gsub(pattern= "http[[:blank:]]www\\w*com", replacement = "", x)
+#   
+# }
 
 pal = brewer.pal(8, "Blues")
 pal = pal[-(1:3)]
@@ -48,13 +51,13 @@ inspect(corpus_noEmailAddress[[4]])
 corpus_noNumeration <- tm_map(corpus_noEmailAddress, content_transformer(removeNumeration))
 corpus.ngrams = tm_map(corpus_noNumeration,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http"))
 corpus.ngrams = tm_map(corpus.ngrams,removePunctuation)
-corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
+# corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
 corpus.ngrams = tm_map(corpus.ngrams,removeNumbers)
 
 
 ##################### UNIGRAM ##################### 
 
-tdm = TermDocumentMatrix(corpus.ngrams, control=list(stripWhitespace= T))
+tdm = TermDocumentMatrix(corpus.ngrams)
 tdm
 tdm.small <- removeSparseTerms(tdm, sparse = 0.9)
 tdm.small
@@ -112,6 +115,15 @@ ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +
   geom_bar(stat="identity") + coord_flip() + 
   xlab("Trigram") + ylab("Frequency") +
   ggtitle("Most Frequent Trigrams")
+
+##################### SENTIMENT ANALYSIS ##################### 
+
+df = as.data.frame(corpus_lowercase)
+sentiment = sentiment_by(df$text)
+summary(sentiment$ave_sentiment)
+qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Review Sentiment Histogram")
+
+##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
 
 
 
