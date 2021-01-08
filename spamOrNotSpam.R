@@ -124,10 +124,11 @@ ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +
 
 ##################### SENTIMENT ANALYSIS ##################### 
 
-df = as.data.frame(corpus_lowercase)
+df = as.data.frame(corpus.ngrams)
 sentiment = sentiment_by(df$text)
 summary(sentiment$ave_sentiment)
 qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Review Sentiment Histogram")
+sentiments <- sentiment$ave_sentiment
 
 ##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
 
@@ -170,3 +171,25 @@ container <- create_container(tdmNew, m$emails.spam,
                               trainSize = 1:4009, testSize = 4010:5728, virgin = F)
 svm_model <- train_model(container,"SVM")
 svm <- classify_model(container, svm_model)
+
+
+##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
+dtm = DocumentTermMatrix(corpus.ngrams)
+dtm
+dtm.small <- removeSparseTerms(dtm, sparse = 0.9)
+dtm.small
+xMatrix <- as.matrix(dtm.small)
+y <- emails$spam
+data <- as.data.frame(cbind(y,xMatrix, sentiments))
+
+# split into test and train
+train.index <- sample(1:length(y), size=floor(.8*length(y)), replace=FALSE) 
+train <- data[train.index,]
+test <- data[-train.index,]
+
+# fit the svm and do a simple validation test. Cost parameter should be tuned.
+sv <- svm(y~., train, type="C-classification", kernel="linear", cost=1)
+table(Pred=predict(sv, test[,-1]) , True=test$y)
+
+
+
