@@ -10,6 +10,7 @@ library(sentimentr)
 library(qdap)
 library(e1071)
 library(gmodels)
+library(RTextTools)
 
 
 
@@ -23,6 +24,7 @@ emails <- read.csv('emails.csv')
 head(emails$text)
 length(emails$text)
 table(factor(emails$spam))
+table(is.na(emails$spam))
 
 ##################### HELPER FUNCTIONS ##################### 
 
@@ -156,3 +158,15 @@ CrossTable(testPredict, yTest,
 
 cMatrix <- table(testPredict, testPredict)
 confusion_matrix(cMatrix)
+
+
+##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
+
+m <- data.frame(emails$text,emails$spam)
+tdmNew <- create_matrix(m$emails.text, language="english", removeNumbers=TRUE,
+                        stemWords=TRUE, removeSparseTerms=.998)
+
+container <- create_container(tdmNew, m$emails.spam,
+                              trainSize = 1:4009, testSize = 4010:5728, virgin = F)
+svm_model <- train_model(container,"SVM")
+svm <- classify_model(container, svm_model)
