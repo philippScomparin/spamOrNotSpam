@@ -11,7 +11,7 @@ library(qdap)
 library(e1071)
 library(gmodels)
 library(RTextTools)
-
+library(caret)
 
 
 ##################### LOAD DATA ##################### 
@@ -19,7 +19,6 @@ library(RTextTools)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 emails <- read.csv('emails.csv')
 
-##################### Explore DATA ##################### 
 
 head(emails$text)
 length(emails$text)
@@ -50,27 +49,27 @@ set.seed(1234)
 
 corpus <- VCorpus(VectorSource(emails$text))
 inspect(corpus[[4]])
-corpus_lowercase <- tm_map(corpus, content_transformer(tolower))
-inspect(corpus_lowercase[[1]])
-corpus_noEmailAddress <- tm_map(corpus_lowercase, content_transformer(removeEmailAddress))
-inspect(corpus_noEmailAddress[[4]])
-corpus_noNumeration <- tm_map(corpus_noEmailAddress, content_transformer(removeNumeration))
-corpus.ngrams = tm_map(corpus_noNumeration,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http"))
-corpus.ngrams = tm_map(corpus.ngrams,removePunctuation)
+corpus <- tm_map(corpus, content_transformer(tolower))
+inspect(corpus[[1]])
+corpus <- tm_map(corpus, content_transformer(removeEmailAddress))
+inspect(corpus[[4]])
+corpus <- tm_map(corpus, content_transformer(removeNumeration))
+corpus <- tm_map(corpus,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http"))
+corpus <- tm_map(corpus,removePunctuation)
 # corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
-corpus.ngrams = tm_map(corpus.ngrams,removeNumbers)
+corpus = tm_map(corpus,removeNumbers)
 
 
 ##################### UNIGRAM ##################### 
 
-tdm = TermDocumentMatrix(corpus.ngrams)
+tdm = TermDocumentMatrix(corpus)
 tdm
+inspect(tdm)
 tdm.small <- removeSparseTerms(tdm, sparse = 0.9)
 tdm.small
-freq = rowSums(as.matrix(tdm.small))
-head(freq,10)
-freq = sort(rowSums(as.matrix(tdm.small)), decreasing = T)
-inspect(tdm)
+freq <- rowSums(as.matrix(tdm.small))
+head(freq,5)
+freq <- sort(rowSums(as.matrix(tdm.small)), decreasing = T)
 word.cloud = wordcloud(words=names(freq), freq=freq, min.freq=500,
                        random.order=F, colors=pal)
 
@@ -91,13 +90,13 @@ ggplot(matrix.tdm, aes(x = Docs, y = Terms, fill = log10(count))) +
 ##################### BIGRAM ##################### 
 
 BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
-tdm.bigram <- TermDocumentMatrix(corpus.ngrams,
+tdm.bigram <- TermDocumentMatrix(corpus,
                                 control = list (tokenize = BigramTokenizer, stripWhitespace = T))
 tdm.bigram
 tdm.bigram.small <- removeSparseTerms(tdm.bigram, 0.99)
 inspect(tdm.bigram.small)
-freq = sort(rowSums(as.matrix(tdm.bigram.small)),decreasing = TRUE)
-freq.df = data.frame(word=names(freq), freq=freq)
+freq <- sort(rowSums(as.matrix(tdm.bigram.small)),decreasing = TRUE)
+freq.df <- data.frame(word=names(freq), freq=freq)
 head(freq.df, 20)
 wordcloud(freq.df$word,freq.df$freq,max.words=100,random.order = F, colors=pal)
 ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +   
@@ -108,13 +107,13 @@ ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +
 ##################### TRIGRAM ##################### 
 
 TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
-tdm.trigram = TermDocumentMatrix(corpus.ngrams,
+tdm.trigram = TermDocumentMatrix(corpus,
                                  control = list(tokenize = TrigramTokenizer, stripWhitespace = T))
 tdm.trigram
 tdm.trigram.small <- removeSparseTerms(tdm.trigram, 0.999)
 inspect(tdm.trigram.small)
-freq = sort(rowSums(as.matrix(tdm.trigram.small)),decreasing = TRUE)
-freq.df = data.frame(word=names(freq), freq=freq)
+freq <- sort(rowSums(as.matrix(tdm.trigram.small)),decreasing = TRUE)
+freq.df <- data.frame(word=names(freq), freq=freq)
 head(freq.df, 20)
 wordcloud(freq.df$word,freq.df$freq,max.words=100,random.order = F, colors=pal)
 ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +   
@@ -124,72 +123,27 @@ ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +
 
 ##################### SENTIMENT ANALYSIS ##################### 
 
-df = as.data.frame(corpus.ngrams)
-sentiment = sentiment_by(df$text)
+corpus.df <- as.data.frame(corpus)
+sentiment <- sentiment_by(corpus.df$text)
 summary(sentiment$ave_sentiment)
 qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Review Sentiment Histogram")
 sentiments <- sentiment$ave_sentiment
 
 ##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
-
-ySplits <- sort(sample(nrow(emails), nrow(emails)*.7))
-yTrain <- emails[ySplits,]$spam
-yTest <- emails[-ySplits,]$spam
-prop.table(table(yTrain))
-prop.table(table(yTest))
-
-xTrain <- tdm[1:4009,]
-xTest <- tdm[4010:5728,]
-
-convert_counts <- function(x) {
-  x <- ifelse(x > 0, "Yes", "No")
-}
-train <- apply(xTrain, MARGIN = 2,
-               convert_counts)
-test <- apply(xTest, MARGIN = 2,
-              convert_counts)
-
-classifier <- naiveBayes(train, yTrain)
-classifier[2]$tables
-testPredict <- predict(classifier, test)
-
-CrossTable(testPredict, yTest,
-           prop.chisq = FALSE, prop.t = FALSE,
-           dnn = c('predicted', 'actual'))
-
-cMatrix <- table(testPredict, testPredict)
-confusion_matrix(cMatrix)
-
-
-##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
-
-m <- data.frame(emails$text,emails$spam)
-tdmNew <- create_matrix(m$emails.text, language="english", removeNumbers=TRUE,
-                        stemWords=TRUE, removeSparseTerms=.998)
-
-container <- create_container(tdmNew, m$emails.spam,
-                              trainSize = 1:4009, testSize = 4010:5728, virgin = F)
-svm_model <- train_model(container,"SVM")
-svm <- classify_model(container, svm_model)
-
-
-##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
-dtm = DocumentTermMatrix(corpus.ngrams)
+dtm = DocumentTermMatrix(corpus)
 dtm
 dtm.small <- removeSparseTerms(dtm, sparse = 0.9)
 dtm.small
 xMatrix <- as.matrix(dtm.small)
-y <- emails$spam
-data <- as.data.frame(cbind(y,xMatrix, sentiments))
+spam <- emails$spam
+wholeData <- as.data.frame(cbind(spam,xMatrix, sentiments))
 
-# split into test and train
-train.index <- sample(1:length(y), size=floor(.8*length(y)), replace=FALSE) 
-train <- data[train.index,]
-test <- data[-train.index,]
+splits <- sample(1:length(spam), size=floor(.75*length(spam)), replace=FALSE) 
+trainData <- wholeData[splits,]
+testData <- wholeData[-splits,]
 
-# fit the svm and do a simple validation test. Cost parameter should be tuned.
-sv <- svm(y~., train, type="C-classification", kernel="linear", cost=1)
-table(Pred=predict(sv, test[,-1]) , True=test$y)
-
-
+sv <- svm(spam~., trainData, type="C-classification", kernel="radial", cost=100)
+prediction <- predict(sv, testData[,-1])
+table(prediction , True=testData$spam)
+confusionMatrix(table(prediction, True=testData$spam))
 
