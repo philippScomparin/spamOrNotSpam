@@ -54,7 +54,7 @@ inspect(corpus[[1]])
 corpus <- tm_map(corpus, content_transformer(removeEmailAddress))
 inspect(corpus[[4]])
 corpus <- tm_map(corpus, content_transformer(removeNumeration))
-corpus <- tm_map(corpus,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http"))
+corpus <- tm_map(corpus,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http", "t"))
 corpus <- tm_map(corpus,removePunctuation)
 # corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
 corpus = tm_map(corpus,removeNumbers)
@@ -126,24 +126,23 @@ ggplot(head(freq.df,15), aes(reorder(word,freq), freq)) +
 corpus.df <- as.data.frame(corpus)
 sentiment <- sentiment_by(corpus.df$text)
 summary(sentiment$ave_sentiment)
-qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Review Sentiment Histogram")
+qplot(sentiment$ave_sentiment, geom="histogram",binwidth=0.1,main="Sentiment Analysis Histogram")
 sentiments <- sentiment$ave_sentiment
 
 ##################### BUILD MODEL TO CLASSIFY E-MAILS AS SPAM OR NOT SPAM ##################### 
-dtm = DocumentTermMatrix(corpus)
+
+dtm = DocumentTermMatrix(corpus, control = list(stemming = T, stripWhitespace = T))
 dtm
 dtm.small <- removeSparseTerms(dtm, sparse = 0.9)
 dtm.small
 xMatrix <- as.matrix(dtm.small)
 spam <- emails$spam
 wholeData <- as.data.frame(cbind(spam,xMatrix, sentiments))
-
 splits <- sample(1:length(spam), size=floor(.75*length(spam)), replace=FALSE) 
 trainData <- wholeData[splits,]
 testData <- wholeData[-splits,]
-
-sv <- svm(spam~., trainData, type="C-classification", kernel="radial", cost=100)
-prediction <- predict(sv, testData[,-1])
+model <- svm(spam~., trainData, type="C-classification", kernel="radial", cost=100)
+prediction <- predict(model, testData[,-1])
 table(prediction , True=testData$spam)
 confusionMatrix(table(prediction, True=testData$spam))
 
