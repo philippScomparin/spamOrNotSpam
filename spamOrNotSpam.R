@@ -17,8 +17,11 @@ library(caret)
 ##################### LOAD DATA ##################### 
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
-emails <- read.csv('emails.csv')
 
+#if line above is not working, please set the working directory manually with the following commented line
+#setwd("pathToEmails.csv")
+
+emails <- read.csv('emails.csv')
 
 head(emails$text)
 length(emails$text)
@@ -35,12 +38,6 @@ removeNumeration <- function(x) {
   gsub(pattern = "[[:digit:]][[:blank:]]th", replacement = "", x)
 }
 
-# removeURLs <- function(x){
-#   
-#   gsub(pattern= "http[[:blank:]]www\\w*com", replacement = "", x)
-#   
-# }
-
 pal = brewer.pal(8, "Blues")
 pal = pal[-(1:3)]
 set.seed(1234)
@@ -48,15 +45,11 @@ set.seed(1234)
 ##################### CLEAN CORPUS ##################### 
 
 corpus <- VCorpus(VectorSource(emails$text))
-inspect(corpus[[4]])
 corpus <- tm_map(corpus, content_transformer(tolower))
-inspect(corpus[[1]])
 corpus <- tm_map(corpus, content_transformer(removeEmailAddress))
-inspect(corpus[[4]])
 corpus <- tm_map(corpus, content_transformer(removeNumeration))
 corpus <- tm_map(corpus,removeWords,c(stopwords(),"re", "ect", "hou", "e", "mail", "kaminski", "hou", "cc", "subject", "vince", "j", "enron", "http", "t"))
 corpus <- tm_map(corpus,removePunctuation)
-# corpus.ngrams = tm_map(corpus.ngrams, removeURLs)
 corpus = tm_map(corpus,removeNumbers)
 
 
@@ -68,8 +61,8 @@ inspect(tdm)
 tdm.small <- removeSparseTerms(tdm, sparse = 0.9)
 tdm.small
 freq <- rowSums(as.matrix(tdm.small))
-head(freq,5)
 freq <- sort(rowSums(as.matrix(tdm.small)), decreasing = T)
+head(freq,5)
 word.cloud = wordcloud(words=names(freq), freq=freq, min.freq=500,
                        random.order=F, colors=pal)
 
@@ -143,6 +136,5 @@ trainData <- wholeData[splits,]
 testData <- wholeData[-splits,]
 model <- svm(spam~., trainData, type="C-classification", kernel="radial", cost=100)
 prediction <- predict(model, testData[,-1])
-table(prediction , True=testData$spam)
 confusionMatrix(table(prediction, True=testData$spam))
 
