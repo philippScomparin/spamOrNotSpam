@@ -1,4 +1,4 @@
-The code can be run with RStudio.
+The source code can be found inside the file spamOrNotSpam.R. The code can be run with RStudio.
 
 To run the code the following packages have to be installed:
 - tm
